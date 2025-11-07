@@ -112,8 +112,6 @@ fi
 ls -lh "$TARGET"
 '@
 $innerScript = $innerScriptTemplate.Replace('__FILENAME__', $fileName)
-
-$innerScript = [string]::Format($innerScriptTemplate, $fileName)
 $innerScript = $innerScript.Replace("`r`n", "`n").Replace("`r", "`n")
 
 if ($VerboseLog) {
