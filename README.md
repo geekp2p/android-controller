@@ -150,14 +150,24 @@ adb logcat
 
 มีสคริปต์ PowerShell ให้สั่งจับภาพหน้าจอจาก Windows ได้ทันที (ต้องเชื่อมต่อ ADB ไว้แล้ว และ container `controller` เปิดอยู่)
 
-```powershell
-cd D:\android-controller
-.\scripts\capture-screenshot.ps1 -Device 10.1.1.242:43849
-```
+- **ปลุกหน้าจอ + เปิดโหมด Stay Awake อัตโนมัติ**
+  ```powershell
+  cd D:\android-controller
+  .\scripts\awake-device.ps1 -Device 10.1.1.242:43849
+  ```
+  - ถ้าไม่ระบุ `-Device` จะเลือกอุปกรณ์ตัวแรกที่สถานะเป็น `device`
+  - ปลุกหน้าจอด้วย `KEYCODE_WAKEUP` (สำรองเป็นปุ่ม Power) และเปิด `svc power stayon true`
+  - ใช้ `-Disable` เพื่อปิดโหมด Stay Awake และคืนค่าเป็นค่าปกติ
+  - เพิ่ม `-VerboseLog` หากต้องการดูคำสั่งที่รันในคอนเทนเนอร์
 
-- ถ้าไม่ได้ระบุ `-Device` จะเลือกอุปกรณ์ตัวแรกที่สถานะเป็น `device`
-- ไฟล์จะถูกบันทึกเป็น `img\screen-<timestamp>.png`
-- เพิ่ม `-VerboseLog` หากต้องการดูคำสั่งภายในที่รันในคอนเทนเนอร์
+- **จับภาพหน้าจอ**
+  ```powershell
+  cd D:\android-controller
+  .\scripts\capture-screenshot.ps1 -Device 10.1.1.242:43849
+  ```
+  - ถ้าไม่ได้ระบุ `-Device` จะเลือกอุปกรณ์ตัวแรกที่สถานะเป็น `device`
+  - ไฟล์จะถูกบันทึกเป็น `img\screen-<timestamp>.png`
+  - เพิ่ม `-VerboseLog` หากต้องการดูคำสั่งภายในที่รันในคอนเทนเนอร์
 
 ---
 

@@ -1,6 +1,10 @@
 param(
     [Parameter(Mandatory = $false)]
     [string]$Device,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$Disable,
+
     [switch]$VerboseLog
 )
 
@@ -55,29 +59,16 @@ if (-not (Test-Path -LiteralPath $repoRoot)) {
     throw "Repository root '$repoRoot' not found."
 }
 
-$imgDir = Join-Path -Path $repoRoot -ChildPath 'img'
-if (-not (Test-Path -LiteralPath $imgDir)) {
-    New-Item -ItemType Directory -Path $imgDir -Force | Out-Null
-}
-
-$timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-$fileName = "screen-$timestamp.png"
-
 if ($VerboseLog) {
     Write-Host "Using repository root: $repoRoot"
-    Write-Host "Saving screenshot to: $imgDir\$fileName"
 }
 
 $deviceArg = if ($Device) { $Device } else { '' }
+$disableFlag = if ($Disable) { '1' } else { '0' }
 
-$innerScriptTemplate = @'
+$innerScript = @'
 set -eu
 set -o pipefail 2>/dev/null || true
-
-if [ ! -d /img ]; then
-  echo "[error] /img mount is missing. Check docker-compose volumes." >&2
-  exit 1
-fi
 
 if [ -z "${DEVICE_ARG:-}" ]; then
   DEVICE_ARG=$(adb devices | awk '$2 == "device" {print $1; exit}')
@@ -102,15 +93,25 @@ if ! adb devices | awk '$2 == "device" {print $1}' | grep -qx "$DEVICE_ARG"; the
   exit 1
 fi
 
-TARGET="/img/__FILENAME__"
-adb -s "$DEVICE_ARG" exec-out screencap -p > "$TARGET"
-if [ ! -s "$TARGET" ]; then
-  echo "[error] ไม่สามารถบันทึกภาพหน้าจอได้" >&2
-  exit 1
+if [ "${AWAKE_DISABLE:-0}" = "1" ]; then
+  echo "[info] ปิดโหมดหน้าจอติดตลอดบน $DEVICE_ARG" >&2
+  adb -s "$DEVICE_ARG" shell svc power stayon false || true
+  adb -s "$DEVICE_ARG" shell settings delete global stay_on_while_plugged_in || true
+  exit 0
 fi
-ls -lh "$TARGET"
+
+echo "[info] เปิดโหมดหน้าจอติดตลอดบน $DEVICE_ARG" >&2
+adb -s "$DEVICE_ARG" shell svc power stayon true
+adb -s "$DEVICE_ARG" shell settings put global stay_on_while_plugged_in 3 >/dev/null 2>&1 || true
+
+# ปลุกหน้าจอด้วยคีย์ WAKEUP; fallback ไปที่ปุ่ม Power หากไม่รองรับ
+if ! adb -s "$DEVICE_ARG" shell input keyevent 224 >/dev/null 2>&1; then
+  adb -s "$DEVICE_ARG" shell input keyevent 26 >/dev/null 2>&1 || true
+fi
+
+echo "[info] หน้าจอถูกปลุกแล้ว" >&2
 '@
-$innerScript = $innerScriptTemplate.Replace('__FILENAME__', $fileName)
+
 $innerScript = $innerScript.Replace("`r`n", "`n").Replace("`r", "`n")
 $innerScriptBase64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($innerScript))
 
@@ -118,12 +119,21 @@ if ($VerboseLog) {
     Write-Host "ADB inner script:" -ForegroundColor Cyan
     Write-Host $innerScript
     Write-Host "Passing device argument to container: '$deviceArg'"
+    Write-Host "Disable flag: $disableFlag"
     Write-Host "Encoded inner script length: $($innerScriptBase64.Length) characters"
 }
 
 Push-Location -LiteralPath $repoRoot
 try {
-    $composeArgs = @('exec', '-T', '--env', "DEVICE_ARG=$deviceArg", '--env', "ADB_INNER_SCRIPT=$innerScriptBase64", 'controller', 'bash', '-lc', 'printf ''%s'' "$ADB_INNER_SCRIPT" | base64 -d | bash')
+    $composeArgs = @(
+        'exec', '-T',
+        '--env', "DEVICE_ARG=$deviceArg",
+        '--env', "ADB_INNER_SCRIPT=$innerScriptBase64",
+        '--env', "AWAKE_DISABLE=$disableFlag",
+        'controller', 'bash', '-lc',
+        'printf ''%s'' "$ADB_INNER_SCRIPT" | base64 -d | bash'
+    )
+
     Invoke-DockerCompose -Arguments $composeArgs -VerboseLog:$VerboseLog
     $exitCode = $LASTEXITCODE
     if ($exitCode -ne 0) {
@@ -134,32 +144,8 @@ finally {
     Pop-Location
 }
 
-$hostPath = Join-Path -Path $imgDir -ChildPath $fileName
-if (-not (Test-Path -LiteralPath $hostPath)) {
-    if ($VerboseLog) {
-        Write-Warning "Screenshot not found on host path, attempting docker compose cp fallback"
-    }
-
-    $dockerCopyTarget = $hostPath
-    if ($dockerCopyTarget -match '^[A-Za-z]:\\') {
-        $dockerCopyTarget = $dockerCopyTarget -replace '\\', '/'
-    }
-
-    Push-Location -LiteralPath $repoRoot
-    try {
-        $copyArgs = @('cp', "controller:/img/$fileName", $dockerCopyTarget)
-        Invoke-DockerCompose -Arguments $copyArgs -VerboseLog:$VerboseLog
-        if ($LASTEXITCODE -ne 0) {
-            throw "Docker Compose copy command exited with code $LASTEXITCODE"
-        }
-    }
-    finally {
-        Pop-Location
-    }
-}
-
-if (Test-Path -LiteralPath $hostPath) {
-    Write-Host "✅ Screenshot saved to $hostPath"
+if ($Disable) {
+    Write-Host "✅ Stay-awake mode disabled on device"
 } else {
-    Write-Warning "Screenshot command finished but file not found at $hostPath"
+    Write-Host "✅ Device awakened and set to stay awake"
 }
