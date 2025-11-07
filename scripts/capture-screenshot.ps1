@@ -44,7 +44,6 @@ function Invoke-DockerCompose {
     }
 
     & $composeCommand @commandArguments
-    return $LASTEXITCODE
 }
 
 $scriptRoot = $PSScriptRoot
@@ -125,7 +124,8 @@ if ($VerboseLog) {
 Push-Location -LiteralPath $repoRoot
 try {
     $composeArgs = @('exec', '-T', '--env', "DEVICE_ARG=$deviceArg", '--env', "ADB_INNER_SCRIPT=$innerScriptBase64", 'controller', 'bash', '-lc', 'printf ''%s'' "$ADB_INNER_SCRIPT" | base64 -d | bash')
-    $exitCode = Invoke-DockerCompose -Arguments $composeArgs -VerboseLog:$VerboseLog
+    Invoke-DockerCompose -Arguments $composeArgs -VerboseLog:$VerboseLog
+    $exitCode = $LASTEXITCODE
     if ($exitCode -ne 0) {
         throw "Docker Compose command exited with code $exitCode"
     }
