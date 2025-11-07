@@ -32,7 +32,8 @@ if ($VerboseLog) {
 $deviceArg = if ($Device) { $Device } else { '' }
 
 $innerScriptTemplate = @'
-set -euo pipefail
+set -eu
+set -o pipefail 2>/dev/null || true
 
 if [ ! -d /img ]; then
   echo "[error] /img mount is missing. Check docker-compose volumes." >&2
@@ -76,7 +77,8 @@ if ($VerboseLog) {
 }
 
 $composeCommandTemplate = @'
-set -euo pipefail
+set -eu
+set -o pipefail 2>/dev/null || true
 cat <<'EOF' >/tmp/adb-screencap.sh
 {0}
 EOF
