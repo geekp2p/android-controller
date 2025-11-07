@@ -80,7 +80,7 @@ if [ ! -d /img ]; then
   exit 1
 fi
 
-if [ -z "${DEVICE_ARG:-}" ]; then␊
+if [ -z "${DEVICE_ARG:-}" ]; then
   DEVICE_ARG=$(adb devices | awk '$2 == "device" {print $1; exit}')
 fi
 
