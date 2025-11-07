@@ -113,16 +113,18 @@ ls -lh "$TARGET"
 '@
 $innerScript = $innerScriptTemplate.Replace('__FILENAME__', $fileName)
 $innerScript = $innerScript.Replace("`r`n", "`n").Replace("`r", "`n")
+$innerScriptBase64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($innerScript))
 
 if ($VerboseLog) {
     Write-Host "ADB inner script:" -ForegroundColor Cyan
     Write-Host $innerScript
     Write-Host "Passing device argument to container: '$deviceArg'"
+    Write-Host "Encoded inner script length: $($innerScriptBase64.Length) characters"
 }
 
 Push-Location -LiteralPath $repoRoot
 try {
-    $composeArgs = @('exec', '-T', '--env', "DEVICE_ARG=$deviceArg", 'controller', 'bash', '-lc', $innerScript)
+    $composeArgs = @('exec', '-T', '--env', "DEVICE_ARG=$deviceArg", '--env', "ADB_INNER_SCRIPT=$innerScriptBase64", 'controller', 'bash', '-lc', 'printf ''%s'' "$ADB_INNER_SCRIPT" | base64 -d | bash')
     $exitCode = Invoke-DockerCompose -Arguments $composeArgs -VerboseLog:$VerboseLog
     if ($exitCode -ne 0) {
         throw "Docker Compose command exited with code $exitCode"
