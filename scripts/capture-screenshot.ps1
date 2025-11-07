@@ -7,6 +7,46 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+function Invoke-DockerCompose {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments,
+
+        [switch]$VerboseLog
+    )
+
+    $composeCommand = $null
+    $commandArguments = $Arguments
+
+    $dockerCommand = Get-Command -Name 'docker' -ErrorAction SilentlyContinue
+    if ($dockerCommand) {
+        & docker @('compose', 'version') *> $null
+        if ($LASTEXITCODE -eq 0) {
+            $composeCommand = 'docker'
+            $commandArguments = @('compose') + $Arguments
+        }
+    }
+
+    if (-not $composeCommand) {
+        $dockerComposeCommand = Get-Command -Name 'docker-compose' -ErrorAction SilentlyContinue
+        if ($dockerComposeCommand) {
+            $composeCommand = 'docker-compose'
+            $commandArguments = $Arguments
+        }
+    }
+
+    if (-not $composeCommand) {
+        throw 'Neither "docker compose" nor "docker-compose" is available on PATH. Install Docker with Compose support.'
+    }
+
+    if ($VerboseLog) {
+        Write-Host "Using compose command: $composeCommand $($commandArguments -join ' ')" -ForegroundColor Yellow
+    }
+
+    & $composeCommand @commandArguments
+    return $LASTEXITCODE
+}
+
 $scriptRoot = $PSScriptRoot
 if (-not $scriptRoot) {
     throw 'PSScriptRoot is not available. Please run this script from a file, not via stdin.'
@@ -83,11 +123,10 @@ if ($VerboseLog) {
 
 Push-Location -LiteralPath $repoRoot
 try {
-    $composeArgs = @('compose', 'exec', '-T', '--env', "DEVICE_ARG=$deviceArg", 'controller', 'bash', '-lc', $innerScript)
-    & docker @composeArgs
-    $exitCode = $LASTEXITCODE
+    $composeArgs = @('exec', '-T', '--env', "DEVICE_ARG=$deviceArg", 'controller', 'bash', '-lc', $innerScript)
+    $exitCode = Invoke-DockerCompose -Arguments $composeArgs -VerboseLog:$VerboseLog
     if ($exitCode -ne 0) {
-        throw "docker compose exec exited with code $exitCode"
+        throw "Docker Compose command exited with code $exitCode"
     }
 }
 finally {
