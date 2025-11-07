@@ -135,6 +135,29 @@ finally {
 }
 
 $hostPath = Join-Path -Path $imgDir -ChildPath $fileName
+if (-not (Test-Path -LiteralPath $hostPath)) {
+    if ($VerboseLog) {
+        Write-Warning "Screenshot not found on host path, attempting docker compose cp fallback"
+    }
+
+    $dockerCopyTarget = $hostPath
+    if ($dockerCopyTarget -match '^[A-Za-z]:\\') {
+        $dockerCopyTarget = $dockerCopyTarget -replace '\\', '/'
+    }
+
+    Push-Location -LiteralPath $repoRoot
+    try {
+        $copyArgs = @('cp', "controller:/img/$fileName", $dockerCopyTarget)
+        Invoke-DockerCompose -Arguments $copyArgs -VerboseLog:$VerboseLog
+        if ($LASTEXITCODE -ne 0) {
+            throw "Docker Compose copy command exited with code $LASTEXITCODE"
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 if (Test-Path -LiteralPath $hostPath) {
     Write-Host "✅ Screenshot saved to $hostPath"
 } else {
