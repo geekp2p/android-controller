@@ -40,12 +40,11 @@ if [ ! -d /img ]; then
   exit 1
 fi
 
-DEVICE_ARG="{0}"
-if [ -z "$DEVICE_ARG" ]; then␊
+if [ -z "${DEVICE_ARG:-}" ]; then
   DEVICE_ARG=$(adb devices | awk '$2 == "device" {{print $1; exit}}')
 fi
 
-if [ -z "$DEVICE_ARG" ]; then
+if [ -z "${DEVICE_ARG:-}" ]; then
   echo "[error] ไม่พบอุปกรณ์ที่สถานะพร้อมใช้งาน (device). ใช้พารามิเตอร์ --device <serial|ip:port>." >&2
   exit 1
 fi
@@ -64,37 +63,27 @@ if ! adb devices | awk '$2 == "device" {{print $1}}' | grep -qx "$DEVICE_ARG"; t
   exit 1
 fi
 
-TARGET="/img/{1}"
+TARGET="/img/{0}"
 adb -s "$DEVICE_ARG" exec-out screencap -p > "$TARGET"
+if [ ! -s "$TARGET" ]; then
+  echo "[error] ไม่สามารถบันทึกภาพหน้าจอได้" >&2
+  exit 1
+fi
 ls -lh "$TARGET"
 '@
 
-$innerScript = [string]::Format($innerScriptTemplate, $deviceArg, $fileName)
+$innerScript = [string]::Format($innerScriptTemplate, $fileName)
 $innerScript = $innerScript.Replace("`r`n", "`n").Replace("`r", "`n")
 
 if ($VerboseLog) {
     Write-Host "ADB inner script:" -ForegroundColor Cyan
     Write-Host $innerScript
-}
-
-$composeCommandTemplate = @'
-set -eu
-set -o pipefail 2>/dev/null || true
-cat <<'EOF' >/tmp/adb-screencap.sh
-{0}
-EOF
-bash /tmp/adb-screencap.sh
-'@
-$composeCommand = [string]::Format($composeCommandTemplate, $innerScript)
-$composeCommand = $composeCommand.Replace("`r`n", "`n").Replace("`r", "`n")
-
-if ($VerboseLog) {
-    Write-Host "Executing docker compose command..." -ForegroundColor Cyan
+    Write-Host "Passing device argument to container: '$deviceArg'"
 }
 
 Push-Location -LiteralPath $repoRoot
 try {
-    $composeArgs = @('compose', 'exec', '-T', 'controller', 'bash', '-lc', $composeCommand)
+    $composeArgs = @('compose', 'exec', '-T', '--env', "DEVICE_ARG=$deviceArg", 'controller', 'bash', '-lc', $innerScript)
     & docker @composeArgs
     $exitCode = $LASTEXITCODE
     if ($exitCode -ne 0) {
