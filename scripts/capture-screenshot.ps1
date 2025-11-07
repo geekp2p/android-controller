@@ -103,7 +103,7 @@ if ! adb devices | awk '$2 == "device" {{print $1}}' | grep -qx "$DEVICE_ARG"; t
   exit 1
 fi
 
-TARGET="/img/{0}"
+TARGET="/img/__FILENAME__"
 adb -s "$DEVICE_ARG" exec-out screencap -p > "$TARGET"
 if [ ! -s "$TARGET" ]; then
   echo "[error] ไม่สามารถบันทึกภาพหน้าจอได้" >&2
@@ -111,6 +111,7 @@ if [ ! -s "$TARGET" ]; then
 fi
 ls -lh "$TARGET"
 '@
+$innerScript = $innerScriptTemplate.Replace('__FILENAME__', $fileName)
 
 $innerScript = [string]::Format($innerScriptTemplate, $fileName)
 $innerScript = $innerScript.Replace("`r`n", "`n").Replace("`r", "`n")
