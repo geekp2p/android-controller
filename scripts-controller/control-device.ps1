@@ -3,7 +3,8 @@
     Helper script to control an Android device via adb.
 
 .DESCRIPTION
-    Provides simple commands for taps, swipes, and key events using adb.
+    Provides simple commands for taps, swipes, and key events using adb inside the
+    running Docker controller service.
 
 .EXAMPLE
     # Swipe from left to right on the default device
@@ -13,8 +14,8 @@
     # Send the HOME key event to a specific device
     .\control-device.ps1 -Action Key -KeyName HOME -Serial emulator-5554
 
-.NOTES
-    Requires adb to be available in PATH.
+.NOTES␊
+    Requires Docker (with Compose) and the controller service to be running.
 #>
 
 [CmdletBinding()]
@@ -46,7 +47,9 @@ param(
     [Parameter()]
     [string]$Serial,
 
-    [switch]$Help
+    [switch]$Help,
+
+    [switch]$VerboseLog
 )
 
 function Show-Usage {
@@ -99,6 +102,54 @@ if (-not $PSBoundParameters.ContainsKey("Action")) {
     Fail-And-ShowUsage -Message "Missing required -Action parameter."
 }
 
+function Invoke-DockerCompose {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments,
+
+        [switch]$VerboseLog
+    )
+
+    $composeCommand = $null
+    $commandArguments = $Arguments
+
+    $dockerCommand = Get-Command -Name 'docker' -ErrorAction SilentlyContinue
+    if ($dockerCommand) {
+        & docker @('compose', 'version') *> $null
+        if ($LASTEXITCODE -eq 0) {
+            $composeCommand = 'docker'
+            $commandArguments = @('compose') + $Arguments
+        }
+    }
+
+    if (-not $composeCommand) {
+        $dockerComposeCommand = Get-Command -Name 'docker-compose' -ErrorAction SilentlyContinue
+        if ($dockerComposeCommand) {
+            $composeCommand = 'docker-compose'
+            $commandArguments = $Arguments
+        }
+    }
+
+    if (-not $composeCommand) {
+        throw 'Neither "docker compose" nor "docker-compose" is available on PATH. Install Docker with Compose support.'
+    }
+
+    if ($VerboseLog) {
+        Write-Host "Using compose command: $composeCommand $($commandArguments -join ' ')" -ForegroundColor Yellow
+    }
+
+    & $composeCommand @commandArguments
+}
+
+$scriptRoot = $PSScriptRoot
+if (-not $scriptRoot) {
+    throw 'PSScriptRoot is not available. Please run this script from a file, not via stdin.'
+}
+$repoRoot = Split-Path -Parent $scriptRoot
+if (-not (Test-Path -LiteralPath $repoRoot)) {
+    throw "Repository root '$repoRoot' not found."
+}
+
 function Invoke-AdbCommand {
     param(
         [Parameter(Mandatory = $true)]
@@ -113,9 +164,17 @@ function Invoke-AdbCommand {
 
     $adbArgs += $Arguments
 
-    & adb @adbArgs
-    if ($LASTEXITCODE -ne 0) {
-        throw "adb exited with code $LASTEXITCODE"
+    $composeArgs = @('exec', '-T', 'controller', 'adb') + $adbArgs
+
+    Push-Location -LiteralPath $repoRoot
+    try {
+        Invoke-DockerCompose -Arguments $composeArgs -VerboseLog:$VerboseLog
+        if ($LASTEXITCODE -ne 0) {
+            throw "adb exited with code $LASTEXITCODE"
+        }
+    }
+    finally {
+        Pop-Location
     }
 }
 
