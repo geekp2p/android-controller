@@ -40,8 +40,8 @@ if [ ! -d /img ]; then
 fi
 
 DEVICE_ARG="{0}"
-if [ -z "$DEVICE_ARG" ]; then
-  DEVICE_ARG=$(adb devices | awk '$2 == "device" {print $1; exit}')
+if [ -z "$DEVICE_ARG" ]; then␊
+  DEVICE_ARG=$(adb devices | awk '$2 == "device" {{print $1; exit}}')
 fi
 
 if [ -z "$DEVICE_ARG" ]; then
@@ -49,7 +49,7 @@ if [ -z "$DEVICE_ARG" ]; then
   exit 1
 fi
 
-if ! adb devices | awk '$2 == "device" {print $1}' | grep -qx "$DEVICE_ARG"; then
+if ! adb devices | awk '$2 == "device" {{print $1}}' | grep -qx "$DEVICE_ARG"; then
   case "$DEVICE_ARG" in
     *:*)
       echo "[info] เชื่อมต่อไปยัง $DEVICE_ARG ..." >&2
@@ -58,7 +58,7 @@ if ! adb devices | awk '$2 == "device" {print $1}' | grep -qx "$DEVICE_ARG"; the
   esac
 fi
 
-if ! adb devices | awk '$2 == "device" {print $1}' | grep -qx "$DEVICE_ARG"; then
+if ! adb devices | awk '$2 == "device" {{print $1}}' | grep -qx "$DEVICE_ARG"; then
   echo "[error] อุปกรณ์ $DEVICE_ARG ยังไม่พร้อม (status != device)." >&2
   exit 1
 fi
