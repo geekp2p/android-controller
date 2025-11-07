@@ -70,6 +70,7 @@ ls -lh "$TARGET"
 '@
 
 $innerScript = [string]::Format($innerScriptTemplate, $deviceArg, $fileName)
+$innerScript = $innerScript.Replace("`r`n", "`n").Replace("`r", "`n")
 
 if ($VerboseLog) {
     Write-Host "ADB inner script:" -ForegroundColor Cyan
@@ -85,6 +86,7 @@ EOF
 bash /tmp/adb-screencap.sh
 '@
 $composeCommand = [string]::Format($composeCommandTemplate, $innerScript)
+$composeCommand = $composeCommand.Replace("`r`n", "`n").Replace("`r", "`n")
 
 if ($VerboseLog) {
     Write-Host "Executing docker compose command..." -ForegroundColor Cyan
