@@ -72,6 +72,31 @@ if [ -n "$device_filter" ] && ! printf '%s' "$device_filter" | grep -q ':'; then
   mdns_candidates=$(adb mdns services 2>/dev/null | awk '/_adb-tls-connect._tcp\./ {print $1}' | grep -F "$device_filter:" || true)
 else
   mdns_candidates=$(adb mdns services 2>/dev/null | awk '/_adb-tls-connect._tcp\./ {print $1}' || true)
+  if [ -n "$device_filter" ]; then
+    # Filter the discovered list to the requested host:port when provided
+    mdns_candidates=$(printf '%s\n' "$mdns_candidates" | grep -F "$device_filter" || true)
+  fi
+fi
+
+if [ -z "$mdns_candidates" ]; then
+  known_hosts_file="$HOME/.android/adb_known_hosts"
+  if [ -f "$known_hosts_file" ]; then
+    if [ -n "$device_filter" ]; then
+      if printf '%s' "$device_filter" | grep -q ':'; then
+        fallback_candidates=$(awk '{print $1}' "$known_hosts_file" | grep -F "$device_filter" || true)
+      else
+        fallback_candidates=$(awk '{print $1}' "$known_hosts_file" | grep -E "^$device_filter:[0-9]+$" || true)
+      fi
+    else
+      fallback_candidates=$(awk '{print $1}' "$known_hosts_file" | grep -E ':[0-9]+$' || true)
+    fi
+
+    fallback_candidates=$(printf '%s\n' "$fallback_candidates" | grep -v '^$' | sort -u)
+    if [ -n "$fallback_candidates" ]; then
+      echo "[warn] ใช้ประวัติจาก adb_known_hosts แทน mDNS." >&2
+      mdns_candidates="$fallback_candidates"
+    fi
+  fi
 fi
 
 if [ -z "$mdns_candidates" ] && [ -n "$device_filter" ]; then
@@ -81,6 +106,7 @@ fi
 
 if [ -z "$mdns_candidates" ]; then
   echo "[error] ไม่พบอุปกรณ์แบบ wireless ผ่าน mDNS (_adb-tls-connect)." >&2
+  echo "[hint] ตรวจสอบว่าเปิด Wireless debugging แล้ว หรือระบุ -Device <IP:PORT>" >&2
   exit 1
 fi
 
