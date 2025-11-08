@@ -84,6 +84,15 @@ if [ -z "${DEVICE_ARG:-}" ]; then
 fi
 
 if [ -z "${DEVICE_ARG:-}" ]; then
+  MDNS_TARGET=$(adb mdns services 2>/dev/null | awk '/_adb-tls-connect._tcp\./ {print $1; exit}')
+  if [ -n "${MDNS_TARGET:-}" ]; then
+    echo "[info] ตรวจพบอุปกรณ์ผ่าน mDNS: $MDNS_TARGET" >&2
+    adb connect "$MDNS_TARGET" || true
+    DEVICE_ARG=$(adb devices | awk '$2 == "device" {print $1; exit}')
+  fi
+fi
+
+if [ -z "${DEVICE_ARG:-}" ]; then
   echo "[error] ไม่พบอุปกรณ์ที่สถานะพร้อมใช้งาน (device). ใช้พารามิเตอร์ --device <serial|ip:port>." >&2
   exit 1
 fi

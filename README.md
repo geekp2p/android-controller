@@ -50,6 +50,8 @@ docker compose exec controller bash
 adb pair <PHONE_IP>:<PAIR_PORT>
 adb connect <PHONE_IP>:<ADB_PORT>
 adb devices -l
+# หรือให้สคริปต์ค้นหาอัตโนมัติด้วย mDNS
+.\scripts\connect-wireless.ps1
 ```
 
 ---
@@ -110,6 +112,13 @@ adb start-server -a -H 0.0.0.0 -P 5037
    adb pair <PHONE_IP>:<PAIR_PORT>     # ใส่ pairing code เมื่อระบบถาม
    adb connect <PHONE_IP>:<ADB_PORT>   # ใช้พอร์ตที่แสดงในหน้า Wireless debugging
    adb devices -l
+   ```
+
+   จากนั้นครั้งถัดไปสามารถใช้สคริปต์ PowerShell ให้ค้นหาและเชื่อมต่อพอร์ตใหม่ให้อัตโนมัติ:
+   ```powershell
+   cd D:\android-controller
+   .\scripts\connect-wireless.ps1          # เลือกอุปกรณ์ตัวแรกที่เจอผ่าน mDNS
+   .\scripts\connect-wireless.ps1 -Device 10.1.1.242   # ระบุเฉพาะ IP ถ้ามีหลายเครื่อง
    ```
 
 > ใช้ทั้ง USB + Wi‑Fi พร้อมกันได้ และเจาะจงเครื่องด้วย `-s`:
