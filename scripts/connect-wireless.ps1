@@ -1,14 +1,14 @@
 param(
-    [Parameter(Mandatory = $false, HelpMessage = 'ระบุ IP หรือ IP:PORT เพื่อบังคับเชื่อมต่ออุปกรณ์เฉพาะ')]
+    [Parameter(Mandatory = $false, HelpMessage = 'Specify IP or IP:PORT to force connecting to a specific device')]
     [string]$Device,
 
-    [Parameter(Mandatory = $false, HelpMessage = 'Pair กับอุปกรณ์ก่อนเชื่อมต่อ เช่น 10.1.1.242:39191')]
+    [Parameter(Mandatory = $false, HelpMessage = 'Pair with the device before connecting, e.g. 10.1.1.242:39191')]
     [string]$PairingAddress,
 
-    [Parameter(Mandatory = $false, HelpMessage = 'Pairing port เมื่อระบุ IP แยกจากพอร์ต')]
+    [Parameter(Mandatory = $false, HelpMessage = 'Pairing port when the IP is provided without a port')]
     [int]$PairingPort,
 
-    [Parameter(Mandatory = $false, HelpMessage = 'Pairing code ที่แสดงบนมือถือ (จำเป็นเมื่อมี Pairing address)')]
+    [Parameter(Mandatory = $false, HelpMessage = 'Pairing code shown on the device (required when Pairing address is provided)')]
     [string]$PairingCode,
 
     [switch]$AllowMultiple,
@@ -34,17 +34,7 @@ function Invoke-DockerCompose {
     if ($dockerCommand) {
         & docker @('compose', 'version') *> $null
         if ($LASTEXITCODE -eq 0) {
-            $composeCommand = 'docker'
-            $commandArguments = @('compose') + $Arguments
-        }
-    }
-
-    if (-not $composeCommand) {
-        $dockerComposeCommand = Get-Command -Name 'docker-compose' -ErrorAction SilentlyContinue
-        if ($dockerComposeCommand) {
-            $composeCommand = 'docker-compose'
-            $commandArguments = $Arguments
-        }
+@@ -48,154 +48,154 @@ function Invoke-DockerCompose {
     }
 
     if (-not $composeCommand) {
@@ -70,11 +60,11 @@ if (-not (Test-Path -LiteralPath $repoRoot)) {
 $pairTarget = $null
 if ($PairingAddress -or $PairingPort -or $PairingCode) {
     if (-not $PairingAddress) {
-        throw 'ต้องระบุ -PairingAddress เมื่อใช้งานตัวเลือก Pairing (เช่น 10.1.1.242 หรือ 10.1.1.242:39191).'
+        throw 'You must specify -PairingAddress when using pairing options (e.g. 10.1.1.242 or 10.1.1.242:39191).'
     }
 
     if (-not $PairingCode) {
-        throw 'ต้องระบุ -PairingCode ร่วมกับ -PairingAddress เพื่อสั่ง pair อัตโนมัติ.'
+        throw 'You must specify -PairingCode together with -PairingAddress to pair automatically.'
     }
 
     $pairTarget = $PairingAddress
@@ -83,7 +73,7 @@ if ($PairingAddress -or $PairingPort -or $PairingCode) {
     }
 
     if ($PairingPort -and ($PairingAddress -match ':')) {
-        Write-Warning 'ละเว้น -PairingPort เนื่องจาก -PairingAddress ระบุพอร์ตอยู่แล้ว.'
+        Write-Warning 'Ignoring -PairingPort because -PairingAddress already contains a port.'
     }
 }
 
@@ -98,15 +88,15 @@ allow_multiple="${ALLOW_MULTIPLE:-0}"
 pair_target="${PAIR_TARGET:-}"
 pair_code="${PAIR_CODE:-}"
 
-if [ -n "$pair_target" ]; then
-  if [ -z "$pair_code" ]; then
-    echo "[error] ต้องระบุ Pairing code เมื่อใช้งาน Pairing address" >&2
+if [ -n "$pair_target" ]; then␊
+  if [ -z "$pair_code" ]; then␊
+    echo "[error] Pairing code is required when using a Pairing address" >&2
     exit 1
   fi
 
-  echo "[info] Pairing กับ $pair_target" >&2
-  if ! adb pair "$pair_target" "$pair_code"; then
-    echo "[error] Pairing ไม่สำเร็จ ลองตรวจสอบโค้ดและพอร์ตอีกครั้ง" >&2
+  echo "[info] Pairing with $pair_target" >&2
+  if ! adb pair "$pair_target" "$pair_code"; then␊
+    echo "[error] Pairing failed. Check the code and port and try again" >&2
     exit 1
   fi
 fi
@@ -137,7 +127,7 @@ if [ -z "$mdns_candidates" ]; then
 
     fallback_candidates=$(printf '%s\n' "$fallback_candidates" | grep -v '^$' | sort -u)
     if [ -n "$fallback_candidates" ]; then
-      echo "[warn] ใช้ประวัติจาก adb_known_hosts แทน mDNS." >&2
+      echo "[warn] Using adb_known_hosts history instead of mDNS." >&2
       mdns_candidates="$fallback_candidates"
     fi
   fi
@@ -148,32 +138,32 @@ if [ -z "$mdns_candidates" ] && [ -n "$device_filter" ]; then
   mdns_candidates="$device_filter"
 fi
 
-if [ -z "$mdns_candidates" ]; then
-  echo "[error] ไม่พบอุปกรณ์แบบ wireless ผ่าน mDNS (_adb-tls-connect)." >&2
-  echo "[hint] ตรวจสอบว่าเปิด Wireless debugging แล้ว หรือระบุ -Device <IP:PORT>" >&2
+if [ -z "$mdns_candidates" ]; then␊
+  echo "[error] No wireless devices found via mDNS (_adb-tls-connect)." >&2
+  echo "[hint] Ensure Wireless debugging is enabled or provide -Device <IP:PORT>" >&2
   exit 1
 fi
 
 connected=0
-for target in $mdns_candidates; do
-  [ -n "$target" ] || continue
-  echo "[info] พยายามเชื่อมต่อไปยัง $target" >&2
+for target in $mdns_candidates; do␊
+  [ -n "$target" ] || continue␊
+  echo "[info] Attempting to connect to $target" >&2
   if adb connect "$target"; then
     connected=$((connected + 1))
     if [ "$allow_multiple" != "1" ]; then
       break
     fi
-  else
-    echo "[warn] เชื่อมต่อ $target ไม่สำเร็จ" >&2
+  else␊
+    echo "[warn] Failed to connect to $target" >&2
   fi
 done
 
-if [ "$connected" -eq 0 ]; then
-  echo "[error] ไม่สามารถเชื่อมต่ออุปกรณ์ใด ๆ ได้" >&2
+if [ "$connected" -eq 0 ]; then␊
+  echo "[error] Unable to connect to any devices" >&2
   exit 1
 fi
 
-echo "[info] รายการอุปกรณ์ปัจจุบัน:" >&2
+echo "[info] Current device list:" >&2
 adb devices -l
 '@
 
