@@ -2,6 +2,15 @@ param(
     [Parameter(Mandatory = $false, HelpMessage = 'ระบุ IP หรือ IP:PORT เพื่อบังคับเชื่อมต่ออุปกรณ์เฉพาะ')]
     [string]$Device,
 
+    [Parameter(Mandatory = $false, HelpMessage = 'Pair กับอุปกรณ์ก่อนเชื่อมต่อ เช่น 10.1.1.242:39191')]
+    [string]$PairingAddress,
+
+    [Parameter(Mandatory = $false, HelpMessage = 'Pairing port เมื่อระบุ IP แยกจากพอร์ต')]
+    [int]$PairingPort,
+
+    [Parameter(Mandatory = $false, HelpMessage = 'Pairing code ที่แสดงบนมือถือ (จำเป็นเมื่อมี Pairing address)')]
+    [string]$PairingCode,
+
     [switch]$AllowMultiple,
 
     [switch]$VerboseLog
@@ -58,6 +67,26 @@ if (-not (Test-Path -LiteralPath $repoRoot)) {
     throw "Repository root '$repoRoot' not found."
 }
 
+$pairTarget = $null
+if ($PairingAddress -or $PairingPort -or $PairingCode) {
+    if (-not $PairingAddress) {
+        throw 'ต้องระบุ -PairingAddress เมื่อใช้งานตัวเลือก Pairing (เช่น 10.1.1.242 หรือ 10.1.1.242:39191).'
+    }
+
+    if (-not $PairingCode) {
+        throw 'ต้องระบุ -PairingCode ร่วมกับ -PairingAddress เพื่อสั่ง pair อัตโนมัติ.'
+    }
+
+    $pairTarget = $PairingAddress
+    if ($PairingPort -and ($PairingAddress -notmatch ':')) {
+        $pairTarget = "$PairingAddress`:$PairingPort"
+    }
+
+    if ($PairingPort -and ($PairingAddress -match ':')) {
+        Write-Warning 'ละเว้น -PairingPort เนื่องจาก -PairingAddress ระบุพอร์ตอยู่แล้ว.'
+    }
+}
+
 Push-Location -LiteralPath $repoRoot
 try {
     $innerScript = @'
@@ -66,6 +95,21 @@ set -o pipefail 2>/dev/null || true
 
 device_filter="${DEVICE_FILTER:-}"
 allow_multiple="${ALLOW_MULTIPLE:-0}"
+pair_target="${PAIR_TARGET:-}"
+pair_code="${PAIR_CODE:-}"
+
+if [ -n "$pair_target" ]; then
+  if [ -z "$pair_code" ]; then
+    echo "[error] ต้องระบุ Pairing code เมื่อใช้งาน Pairing address" >&2
+    exit 1
+  fi
+
+  echo "[info] Pairing กับ $pair_target" >&2
+  if ! adb pair "$pair_target" "$pair_code"; then
+    echo "[error] Pairing ไม่สำเร็จ ลองตรวจสอบโค้ดและพอร์ตอีกครั้ง" >&2
+    exit 1
+  fi
+fi
 
 if [ -n "$device_filter" ] && ! printf '%s' "$device_filter" | grep -q ':'; then
   # If only IP is provided, search for matching IP from mDNS discovery
@@ -140,6 +184,11 @@ adb devices -l
 
     if ($Device) {
         $envArguments += @('--env', "DEVICE_FILTER=$Device")
+    }
+
+    if ($pairTarget) {
+        $envArguments += @('--env', "PAIR_TARGET=$pairTarget")
+        $envArguments += @('--env', "PAIR_CODE=$PairingCode")
     }
 
     if ($AllowMultiple) {

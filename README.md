@@ -119,6 +119,7 @@ adb start-server -a -H 0.0.0.0 -P 5037
    cd D:\android-controller
    .\scripts\connect-wireless.ps1          # เลือกอุปกรณ์ตัวแรกที่เจอผ่าน mDNS
    .\scripts\connect-wireless.ps1 -Device 10.1.1.242   # ระบุเฉพาะ IP ถ้ามีหลายเครื่อง
+   .\scripts\connect-wireless.ps1 -PairingAddress 10.1.1.242:39191 -PairingCode 123456   # Pair + connect ในคำสั่งเดียว
    ```
 
 > ใช้ทั้ง USB + Wi‑Fi พร้อมกันได้ และเจาะจงเครื่องด้วย `-s`:
