@@ -60,16 +60,16 @@ if (-not (Test-Path -LiteralPath $repoRoot)) {
     throw "Repository root '$repoRoot' not found."
 }
 
-$targetDescription = if ($Device) { "อุปกรณ์ $Device" } else { 'อุปกรณ์ที่เชื่อมต่ออยู่' }
-if (-not $PSCmdlet.ShouldProcess($targetDescription, 'ลบรูปภาพทั้งหมดจากอุปกรณ์')) {
-    Write-Host '[info] ยกเลิกการลบรูปภาพ.' -ForegroundColor Yellow
+$targetDescription = if ($Device) { "device $Device" } else { 'all connected devices' }
+if (-not $PSCmdlet.ShouldProcess($targetDescription, 'Delete all photos from the target device')) {
+    Write-Host '[info] Delete photos cancelled.' -ForegroundColor Yellow
     return
 }
 
 if (-not $Force) {
-    $warning = "การทำงานนี้จะลบรูปภาพทั้งหมดจาก $targetDescription (เช่น DCIM/Camera, DCIM/Screenshots, Pictures/Screenshots)"
-    if (-not $PSCmdlet.ShouldContinue($warning, 'ยืนยันการลบรูปภาพทั้งหมดหรือไม่?')) {
-        Write-Host '[info] ยกเลิกการลบรูปภาพ.' -ForegroundColor Yellow
+    $warning = "This action will delete all photos from $targetDescription (e.g. DCIM/Camera, DCIM/Screenshots, Pictures/Screenshots)"
+    if (-not $PSCmdlet.ShouldContinue($warning, 'Are you sure you want to delete all photos?')) {
+        Write-Host '[info] Delete photos cancelled.' -ForegroundColor Yellow
         return
     }
 }
@@ -91,28 +91,28 @@ fi
 if [ -z "$device_arg" ]; then
   mdns_target=$(adb mdns services 2>/dev/null | awk '/_adb-tls-connect._tcp\./ {print $1; exit}')
   if [ -n "$mdns_target" ]; then
-    echo "[info] ตรวจพบอุปกรณ์ผ่าน mDNS: $mdns_target" >&2
+    echo "[info] Detected device via mDNS: $mdns_target" >&2
     adb connect "$mdns_target" || true
     device_arg=$(adb devices | awk '$2 == "device" {print $1; exit}')
   fi
 fi
 
 if [ -z "$device_arg" ]; then
-  echo "[error] ไม่พบอุปกรณ์ที่สถานะพร้อมใช้งาน (device). ใช้ --device <serial|ip:port>." >&2
+  echo "[error] No device found in 'device' status. Use --device <serial|ip:port>." >&2
   exit 1
 fi
 
 if ! adb devices | awk '$2 == "device" {print $1}' | grep -qx "$device_arg"; then
   case "$device_arg" in
     *:*)
-      echo "[info] เชื่อมต่อไปยัง $device_arg ..." >&2
+      echo "[info] Connecting to $device_arg ..." >&2
       adb connect "$device_arg" || true
       ;;
   esac
 fi
 
 if ! adb devices | awk '$2 == "device" {print $1}' | grep -qx "$device_arg"; then
-  echo "[error] อุปกรณ์ $device_arg ยังไม่พร้อม (status != device)." >&2
+  echo "[error] Device $device_arg is not ready (status != device)." >&2
   exit 1
 fi
 
@@ -121,24 +121,24 @@ for target in $delete_targets; do
   [ -n "$target" ] || continue
   escaped_target=$(printf '%s\n' "$target" | sed 's/"/\\"/g')
   if adb -s "$device_arg" shell "if [ -d \"$escaped_target\" ]; then exit 0; else exit 1; fi" >/dev/null 2>&1; then
-    echo "[info] ลบข้อมูลใน $target" >&2
+    echo "[info] Removing files in $target" >&2
     if adb -s "$device_arg" shell "rm -rf \"$escaped_target\"" >/dev/null 2>&1; then
       adb -s "$device_arg" shell "mkdir -p \"$escaped_target\"" >/dev/null 2>&1 || true
       deleted_any=1
     else
-      echo "[warn] ไม่สามารถลบ $target ได้" >&2
+      echo "[warn] Unable to delete $target" >&2
     fi
   else
-    echo "[info] ข้าม $target (ไม่พบโฟลเดอร์)" >&2
+    echo "[info] Skipping $target (folder not found)" >&2
   fi
 done
 
 if [ "$deleted_any" -eq 0 ]; then
-  echo "[warn] ไม่พบโฟลเดอร์รูปภาพสำหรับลบ" >&2
+  echo "[warn] No photo folders were found to delete" >&2
   exit 0
 fi
 
-echo "[info] ลบรูปภาพทั้งหมดเสร็จสิ้น" >&2
+echo "[info] Finished deleting photos" >&2
 '@
 
 $innerScript = $innerScript.Replace("`r`n", "`n").Replace("`r", "`n")
@@ -162,4 +162,4 @@ finally {
     Pop-Location
 }
 
-Write-Host '✅ ลบรูปภาพทั้งหมดเรียบร้อยแล้ว'
+Write-Host '✅ Finished deleting all photos'
