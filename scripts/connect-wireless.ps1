@@ -249,8 +249,7 @@ fi
 connected=0
 for target in $mdns_candidates; do
   [ -n "$target" ] || continue
-  echo "[info] Attempting to connect to $target" >&2
-  if adb connect "$target"; then
+  if retry_connect "$target"; then
     connected=$((connected + 1))
     if [ "$allow_multiple" != "1" ]; then
       break
@@ -270,7 +269,66 @@ adb devices -l
 '@
 
     $innerScript = $innerScript.Replace("`r`n", "`n").Replace("`r", "`n")
-    $innerScriptBase64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($innerScript))
+
+function Get-RetryShellScript {
+    $retryScript = @'
+retry_connect() {
+  local candidate="$1"
+  local attempt=1
+  local host=""
+  while [ $attempt -le 3 ]; do
+    if [ $attempt -eq 1 ]; then
+      echo "[info] Attempting to connect to $candidate" >&2
+    else
+      echo "[info] Attempting to connect to $candidate (retry $attempt)" >&2
+    fi
+
+    if adb connect "$candidate"; then
+      return 0
+    fi
+
+    if [ $attempt -lt 3 ]; then
+      echo "[warn] Failed to connect to $candidate (attempt $attempt). Cleaning up and retrying..." >&2
+      adb disconnect "$candidate" >/dev/null 2>&1 || true
+
+      if printf '%s' "$candidate" | grep -q ':'; then
+        host="${candidate%%:*}"
+        adb disconnect "$host" >/dev/null 2>&1 || true
+      else
+        host=""
+      fi
+
+      if [ -n "$host" ]; then
+        adb devices | awk '$2 == "offline" {print $1}' | while IFS= read -r offline_dev; do
+          if [ "$offline_dev" = "$candidate" ] || printf '%s\n' "$offline_dev" | grep -q "^$host:"; then
+            adb disconnect "$offline_dev" >/dev/null 2>&1 || true
+          fi
+        done
+      else
+        adb devices | awk '$2 == "offline" {print $1}' | while IFS= read -r offline_dev; do
+          if [ "$offline_dev" = "$candidate" ]; then
+            adb disconnect "$offline_dev" >/dev/null 2>&1 || true
+          fi
+        done
+      fi
+
+      sleep 1
+    fi
+
+    attempt=$((attempt + 1))
+  done
+
+  echo "[error] Failed to connect to $candidate after multiple attempts" >&2
+  return 1
+}
+'@
+
+    return $retryScript.Replace("`r`n", "`n").Replace("`r", "`n")
+}
+
+$retryFunction = Get-RetryShellScript
+$innerScript = $retryFunction + "`n" + $innerScript
+$innerScriptBase64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($innerScript))
 
     $envArguments = @('--env', "ADB_INNER_SCRIPT=$innerScriptBase64")
 
