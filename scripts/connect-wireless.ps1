@@ -13,11 +13,27 @@ param(
 
     [switch]$AllowMultiple,
 
+    [switch]$Forget,
+
     [switch]$VerboseLog
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ($Forget) {
+    if (-not $Device) {
+        throw 'You must specify -Device when using -Forget to indicate which host to remove.'
+    }
+
+    if ($PairingAddress -or $PairingPort -or $PairingCode) {
+        throw 'The -Forget switch cannot be combined with pairing options.'
+    }
+
+    if ($AllowMultiple) {
+        throw 'The -Forget switch cannot be combined with -AllowMultiple.'
+    }
+}
 
 function Invoke-DockerCompose {
     param(
@@ -60,7 +76,7 @@ if (-not (Test-Path -LiteralPath $repoRoot)) {
 }
 
 $pairTarget = $null
-if ($PairingAddress -or $PairingPort -or $PairingCode) {
+if (-not $Forget -and ($PairingAddress -or $PairingPort -or $PairingCode)) {
     if (-not $PairingAddress) {
         throw 'You must specify -PairingAddress when using pairing options (e.g. 10.1.1.242 or 10.1.1.242:39191).'
     }
@@ -90,6 +106,49 @@ allow_multiple="${ALLOW_MULTIPLE:-0}"
 pair_target="${PAIR_TARGET:-}"
 pair_code="${PAIR_CODE:-}"
 pair_success_target=""
+forget_mode="${FORGET_MODE:-0}"
+forget_target="${FORGET_TARGET:-}"
+
+if [ "$forget_mode" = "1" ]; then
+  if [ -z "$forget_target" ]; then
+    echo "[error] Missing target to forget." >&2
+    exit 1
+  fi
+
+  echo "[info] Forgetting $forget_target" >&2
+  if ! adb disconnect "$forget_target" >/dev/null 2>&1; then
+    echo "[warn] Unable to disconnect $forget_target (it may already be disconnected)." >&2
+  fi
+
+  known_hosts_file="$HOME/.android/adb_known_hosts"
+  if [ ! -f "$known_hosts_file" ]; then
+    echo "[warn] adb_known_hosts file not found. Nothing to remove." >&2
+    exit 0
+  fi
+
+  tmp_file=$(mktemp "${TMPDIR:-/tmp}/adb_known_hosts.XXXXXX")
+  cleanup_tmp() {
+    [ -f "$tmp_file" ] && rm -f "$tmp_file"
+  }
+  trap cleanup_tmp EXIT
+
+  if printf '%s' "$forget_target" | grep -q ':'; then
+    awk -v target="$forget_target" '$1 != target {print $0}' "$known_hosts_file" >"$tmp_file"
+  else
+    awk -v host="$forget_target" '$1 !~ ("^" host ":[0-9]+$") {print $0}' "$known_hosts_file" >"$tmp_file"
+  fi
+
+  if cmp -s "$tmp_file" "$known_hosts_file"; then
+    echo "[warn] No known host entries matched $forget_target" >&2
+    exit 0
+  fi
+
+  mv "$tmp_file" "$known_hosts_file"
+  trap - EXIT
+  rm -f "$tmp_file" 2>/dev/null || true
+  echo "[info] Removed known host entries for $forget_target" >&2
+  exit 0
+fi
 
 add_fallback() {
   local value="$1"
@@ -215,7 +274,7 @@ adb devices -l
 
     $envArguments = @('--env', "ADB_INNER_SCRIPT=$innerScriptBase64")
 
-    if ($Device) {
+    if ($Device -and -not $Forget) {
         $envArguments += @('--env', "DEVICE_FILTER=$Device")
     }
 
@@ -226,6 +285,11 @@ adb devices -l
 
     if ($AllowMultiple) {
         $envArguments += @('--env', 'ALLOW_MULTIPLE=1')
+    }
+
+    if ($Forget) {
+        $envArguments += @('--env', 'FORGET_MODE=1')
+        $envArguments += @('--env', "FORGET_TARGET=$Device")
     }
 
     $composeArgs = @('exec', '-T') + $envArguments + @('controller', 'bash', '-lc', 'printf ''%s'' "$ADB_INNER_SCRIPT" | base64 -d | bash')
