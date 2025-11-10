@@ -90,14 +90,14 @@ allow_multiple="${ALLOW_MULTIPLE:-0}"
 pair_target="${PAIR_TARGET:-}"
 pair_code="${PAIR_CODE:-}"
 
-if [ -n "$pair_target" ]; then␊
-  if [ -z "$pair_code" ]; then␊
+if [ -n "$pair_target" ]; then
+  if [ -z "$pair_code" ]; then
     echo "[error] Pairing code is required when using a Pairing address" >&2
     exit 1
   fi
 
   echo "[info] Pairing with $pair_target" >&2
-  if ! adb pair "$pair_target" "$pair_code"; then␊
+  if ! adb pair "$pair_target" "$pair_code"; then
     echo "[error] Pairing failed. Check the code and port and try again" >&2
     exit 1
   fi
@@ -140,27 +140,27 @@ if [ -z "$mdns_candidates" ] && [ -n "$device_filter" ]; then
   mdns_candidates="$device_filter"
 fi
 
-if [ -z "$mdns_candidates" ]; then␊
+if [ -z "$mdns_candidates" ]; then
   echo "[error] No wireless devices found via mDNS (_adb-tls-connect)." >&2
   echo "[hint] Ensure Wireless debugging is enabled or provide -Device <IP:PORT>" >&2
   exit 1
 fi
 
 connected=0
-for target in $mdns_candidates; do␊
-  [ -n "$target" ] || continue␊
+for target in $mdns_candidates; do
+  [ -n "$target" ] || continue
   echo "[info] Attempting to connect to $target" >&2
   if adb connect "$target"; then
     connected=$((connected + 1))
     if [ "$allow_multiple" != "1" ]; then
       break
     fi
-  else␊
+  else
     echo "[warn] Failed to connect to $target" >&2
   fi
 done
 
-if [ "$connected" -eq 0 ]; then␊
+if [ "$connected" -eq 0 ]; then
   echo "[error] Unable to connect to any devices" >&2
   exit 1
 fi
