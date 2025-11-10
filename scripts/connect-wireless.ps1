@@ -34,7 +34,6 @@ function Invoke-DockerCompose {
     if ($dockerCommand) {
         & docker @('compose', 'version') *> $null
         if ($LASTEXITCODE -eq 0) {
-@@ -48,154 +48,154 @@ function Invoke-DockerCompose {
     }
 
     if (-not $composeCommand) {
