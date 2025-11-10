@@ -109,6 +109,22 @@ pair_success_target=""
 forget_mode="${FORGET_MODE:-0}"
 forget_target="${FORGET_TARGET:-}"
 
+find_known_hosts_file() {
+  local fallback="$HOME/.android/adb_known_hosts"
+  local candidates=("$HOME/.android/adb_known_hosts" "$HOME/.android/adb/adb_known_hosts")
+  local candidate=""
+
+  for candidate in "${candidates[@]}"; do
+    if [ -f "$candidate" ]; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+
+  printf '%s' "$fallback"
+  return 1
+}
+
 if [ "$forget_mode" = "1" ]; then
   if [ -z "$forget_target" ]; then
     echo "[error] Missing target to forget." >&2
@@ -120,11 +136,11 @@ if [ "$forget_mode" = "1" ]; then
     echo "[warn] Unable to disconnect $forget_target (it may already be disconnected)." >&2
   fi
 
-  known_hosts_file="$HOME/.android/adb_known_hosts"
-  if [ ! -f "$known_hosts_file" ]; then
+  if ! known_hosts_file=$(find_known_hosts_file); then
     echo "[warn] adb_known_hosts file not found. Nothing to remove." >&2
     exit 0
   fi
+
 
   tmp_file=$(mktemp "${TMPDIR:-/tmp}/adb_known_hosts.XXXXXX")
   cleanup_tmp() {
@@ -211,8 +227,7 @@ if [ -z "$mdns_candidates" ]; then
     add_fallback "$pair_success_target"
   fi
 
-  known_hosts_file="$HOME/.android/adb_known_hosts"
-  if [ -f "$known_hosts_file" ]; then
+  if known_hosts_file=$(find_known_hosts_file); then
     if [ -n "$device_filter" ]; then
       if printf '%s' "$device_filter" | grep -q ':'; then
         known_host_candidates=$(awk '{print $1}' "$known_hosts_file" | grep -F "$device_filter" || true)
