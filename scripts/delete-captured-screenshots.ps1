@@ -64,7 +64,7 @@ if (-not (Test-Path -LiteralPath $imgDir)) {
 
 $hostTargets = @()
 if (Test-Path -LiteralPath $imgDir) {
-    $hostTargets = Get-ChildItem -LiteralPath $imgDir -File -Filter 'screen-*.png' | ForEach-Object { $_.FullName }
+    $hostTargets = @(Get-ChildItem -LiteralPath $imgDir -File -Filter 'screen-*.png' | ForEach-Object { $_.FullName })
 }
 
 $targetDescription = 'captured screenshots under img/'
