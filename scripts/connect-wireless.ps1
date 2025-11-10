@@ -34,6 +34,9 @@ function Invoke-DockerCompose {
     if ($dockerCommand) {
         & docker @('compose', 'version') *> $null
         if ($LASTEXITCODE -eq 0) {
+            $composeCommand = 'docker'
+            $commandArguments = @('compose') + $Arguments
+        }
     }
 
     if (-not $composeCommand) {
