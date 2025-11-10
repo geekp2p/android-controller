@@ -89,6 +89,17 @@ device_filter="${DEVICE_FILTER:-}"
 allow_multiple="${ALLOW_MULTIPLE:-0}"
 pair_target="${PAIR_TARGET:-}"
 pair_code="${PAIR_CODE:-}"
+pair_success_target=""
+
+add_fallback() {
+  local value="$1"
+  [ -n "$value" ] || return 0
+  if [ -z "$fallback_candidates" ]; then
+    fallback_candidates="$value"
+  else
+    fallback_candidates=$(printf '%s\n%s\n' "$fallback_candidates" "$value")
+  fi
+}
 
 if [ -n "$pair_target" ]; then
   if [ -z "$pair_code" ]; then
@@ -97,41 +108,71 @@ if [ -n "$pair_target" ]; then
   fi
 
   echo "[info] Pairing with $pair_target" >&2
-  if ! adb pair "$pair_target" "$pair_code"; then
+  if ! pair_output=$(adb pair "$pair_target" "$pair_code" 2>&1); then
+    printf '%s\n' "$pair_output" >&2
     echo "[error] Pairing failed. Check the code and port and try again" >&2
     exit 1
   fi
-fi
+  printf '%s\n' "$pair_output" >&2
 
-if [ -n "$device_filter" ] && ! printf '%s' "$device_filter" | grep -q ':'; then
-  # If only IP is provided, search for matching IP from mDNS discovery
-  mdns_candidates=$(adb mdns services 2>/dev/null | awk '/_adb-tls-connect._tcp\./ {print $1}' | grep -F "$device_filter:" || true)
-else
-  mdns_candidates=$(adb mdns services 2>/dev/null | awk '/_adb-tls-connect._tcp\./ {print $1}' || true)
-  if [ -n "$device_filter" ]; then
-    # Filter the discovered list to the requested host:port when provided
-    mdns_candidates=$(printf '%s\n' "$mdns_candidates" | grep -F "$device_filter" || true)
+  pair_success_target=$(printf '%s\n' "$pair_output" | awk '/Successfully paired to / {print $4}' | tail -n 1)
+  if [ -z "$pair_success_target" ]; then
+    pair_success_target="$pair_target"
   fi
 fi
 
+  mdns_raw=$(adb mdns services 2>/dev/null | awk '/_adb-tls-connect._tcp\./ {print $NF}' || true)
+
+  if [ -n "$mdns_raw" ]; then
+    # Normalise and deduplicate host:port values discovered via mDNS
+    mdns_candidates=$(printf '%s\n' "$mdns_raw" | grep -E ':[0-9]+$' | sort -u || true)
+  else
+    mdns_candidates=""
+  fi
+
+  if [ -n "$device_filter" ]; then
+    if printf '%s' "$device_filter" | grep -q ':'; then
+      # Filter to the exact host:port when provided
+      mdns_candidates=$(printf '%s\n' "$mdns_candidates" | grep -F "$device_filter" || true)
+    else
+      # Filter to any host that matches the provided IP
+      mdns_candidates=$(printf '%s\n' "$mdns_candidates" | grep -F "$device_filter:" || true)
+    fi
+  fi
+
 if [ -z "$mdns_candidates" ]; then
+  fallback_candidates=""
+
+  if [ -n "$device_filter" ]; then
+    add_fallback "$device_filter"
+  fi
+
+  if [ -n "$pair_success_target" ]; then
+    echo "[warn] Falling back to the most recently paired target ($pair_success_target)." >&2
+    add_fallback "$pair_success_target"
+  fi
+
   known_hosts_file="$HOME/.android/adb_known_hosts"
   if [ -f "$known_hosts_file" ]; then
     if [ -n "$device_filter" ]; then
       if printf '%s' "$device_filter" | grep -q ':'; then
-        fallback_candidates=$(awk '{print $1}' "$known_hosts_file" | grep -F "$device_filter" || true)
+        known_host_candidates=$(awk '{print $1}' "$known_hosts_file" | grep -F "$device_filter" || true)
       else
-        fallback_candidates=$(awk '{print $1}' "$known_hosts_file" | grep -E "^$device_filter:[0-9]+$" || true)
+        known_host_candidates=$(awk '{print $1}' "$known_hosts_file" | grep -E "^$device_filter:[0-9]+$" || true)
       fi
     else
-      fallback_candidates=$(awk '{print $1}' "$known_hosts_file" | grep -E ':[0-9]+$' || true)
+      known_host_candidates=$(awk '{print $1}' "$known_hosts_file" | grep -E ':[0-9]+$' || true)
     fi
 
-    fallback_candidates=$(printf '%s\n' "$fallback_candidates" | grep -v '^$' | sort -u)
-    if [ -n "$fallback_candidates" ]; then
+    if [ -n "$known_host_candidates" ]; then
       echo "[warn] Using adb_known_hosts history instead of mDNS." >&2
-      mdns_candidates="$fallback_candidates"
+      add_fallback "$known_host_candidates"
     fi
+  fi
+
+  if [ -n "$fallback_candidates" ]; then
+    fallback_candidates=$(printf '%s\n' "$fallback_candidates" | grep -v '^$' | sort -u)
+    mdns_candidates="$fallback_candidates"
   fi
 fi
 
