@@ -1,0 +1,10 @@
+docker compose exec controller bash
+
+adb pair 10.1.1.242:39141 820924
+
+adb connect 10.1.1.242:43473
+
+powershell
+
+
+docker compose exec controller python /work/controller/touch_event_capture.py --device /dev/input/event2 --output /work/touch-events.csv --format csv
