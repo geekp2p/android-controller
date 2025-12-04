@@ -172,6 +172,19 @@ overlay-touches.py /work/touch-events.json /work/ui-dumps/20240901-120000-login-
 ```
 - ไฟล์ผลลัพธ์จะมี suffix `-marked` หรือกำหนดเองด้วย `-o`
 
+### Replay log (touch / element)
+```bash
+# พิกัดดิบจาก touch-event-capture.py (รีเพลย์ตาม timestamp + ความยาวปัดจริง)
+replay-log.py /work/touch-events.json --speed 1.5
+
+# log อ้างอิง element (ต้องมี UI dump ล่าสุดจาก ui_dump_capture.py)
+replay-log.py /work/element-actions.json --ui-source /work/ui-dumps --verify screenshot
+```
+- รองรับ JSON/CSV จาก `touch-event-capture.py` (จับคู่ `down/move/up` → tap หรือ swipe)
+- สำหรับ log อ้างอิง element (`resource_id` / `text`) จะหาพิกัดศูนย์กลางจาก UI dump ล่าสุด
+- ตั้ง speed เร่ง/ช้า หรือกำหนดดีเลย์คงที่ได้ด้วย `--speed` / `--fixed-delay`
+- เพิ่ม `--verify ui|screenshot|both` เพื่อดึง UI dump / screenshot หลังแต่ละสเต็ป
+
 ### ดึง screenshot ไปไว้ที่ `D:\android-controller\img`
 
 มีสคริปต์ PowerShell ให้สั่งจับภาพหน้าจอจาก Windows ได้ทันที (ต้องเชื่อมต่อ ADB ไว้แล้ว และ container `controller` เปิดอยู่)
