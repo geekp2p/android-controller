@@ -38,6 +38,7 @@ D:\android-controller\
 ```powershell
 # 1) สตาร์ทคอนเทนเนอร์
 cd D:\android-controller
+docker compose build --no-cache
 docker compose up -d --build
 docker compose up --build
 

@@ -4,6 +4,7 @@ FROM debian:stable-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
       android-tools-adb android-tools-fastboot \
       usbutils udev iputils-ping curl procps ca-certificates python3 python3-pil \
+      python-is-python3 \
     && rm -rf /var/lib/apt/lists/*
 
 # udev rule สำหรับ Samsung (Vendor ID: 04e8) ให้สิทธิ์อุปกรณ์ USB

@@ -13,7 +13,7 @@ docker compose exec controller bash
 
 adb pair 10.1.1.242:39141 820924
 
-adb connect 10.1.1.242:44525
+adb connect 10.1.1.242:43473
 
 adb devices -l
 
