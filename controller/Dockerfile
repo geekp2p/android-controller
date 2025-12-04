@@ -3,7 +3,7 @@ FROM debian:stable-slim
 # ติดตั้งเครื่องมือที่ต้องใช้
 RUN apt-get update && apt-get install -y --no-install-recommends \
       android-tools-adb android-tools-fastboot \
-      usbutils udev iputils-ping curl procps ca-certificates python3 \
+      usbutils udev iputils-ping curl procps ca-certificates python3 python3-pil \
     && rm -rf /var/lib/apt/lists/*
 
 # udev rule สำหรับ Samsung (Vendor ID: 04e8) ให้สิทธิ์อุปกรณ์ USB
@@ -16,7 +16,11 @@ WORKDIR /work
 
 # Utility scripts
 COPY touch_event_capture.py /usr/local/bin/touch-event-capture.py
-RUN chmod +x /usr/local/bin/touch-event-capture.py
+COPY capture_ui_and_screen.py /usr/local/bin/capture-ui-and-screen.py
+COPY overlay_touches.py /usr/local/bin/overlay-touches.py
+RUN chmod +x /usr/local/bin/touch-event-capture.py \
+    && chmod +x /usr/local/bin/capture-ui-and-screen.py \
+    && chmod +x /usr/local/bin/overlay-touches.py
 
 # คงอยู่รอคำสั่งจาก docker-compose (ทั้งโหมด server และ client ใช้ภาพเดียวกัน)
 CMD ["bash","-lc","echo image ready; tail -f /dev/null"]

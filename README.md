@@ -157,6 +157,21 @@ adb logcat
 
 ไฟล์ที่ดึงออกมา (เช่น `s.png`, `log.txt`) จะอยู่ใน `D:\android-controller\data\`
 
+### Dump UI + Screenshot (timestamp/stage ตรงกัน)
+```bash
+# บันทึกไฟล์เป็น /work/ui-dumps/<timestamp>-<stage>.xml และ .png
+capture-ui-and-screen.py -g login-screen -s 10.1.1.242:43849
+```
+- ใช้คำสั่ง `adb shell screencap -p /sdcard/screen.png && adb pull ...` เพื่อให้สกรีนช็อตอยู่โฟลเดอร์เดียวกับ UI dump
+- ไฟล์ XML กับ PNG จะมี prefix ตรงกัน (`<timestamp>-<stage>`) ทำให้นำไปเทียบกันได้ทันที
+
+### (ตัวเลือก) วาด marker จาก log ลงบนสกรีนช็อต
+```bash
+# ใช้ไฟล์ที่ได้จาก touch-event-capture.py (JSON/CSV)
+overlay-touches.py /work/touch-events.json /work/ui-dumps/20240901-120000-login-screen.png
+```
+- ไฟล์ผลลัพธ์จะมี suffix `-marked` หรือกำหนดเองด้วย `-o`
+
 ### ดึง screenshot ไปไว้ที่ `D:\android-controller\img`
 
 มีสคริปต์ PowerShell ให้สั่งจับภาพหน้าจอจาก Windows ได้ทันที (ต้องเชื่อมต่อ ADB ไว้แล้ว และ container `controller` เปิดอยู่)
