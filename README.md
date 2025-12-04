@@ -180,6 +180,18 @@ adb logcat
   - ไฟล์จะถูกบันทึกเป็น `img\screen-<timestamp>.png`
   - เพิ่ม `-VerboseLog` หากต้องการดูคำสั่งภายในที่รันในคอนเทนเนอร์
 
+### เก็บ Touch Events เป็น JSON/CSV
+```bash
+# เริ่มฟัง event จาก /dev/input/event2 แล้วเซฟเป็น CSV ลงโฮสต์
+docker compose exec controller touch-event-capture.py \
+  --device /dev/input/event2 \
+  --output /work/touch-events.csv \
+  --format csv
+```
+- สคริปต์จะอ่าน `adb shell getevent -lt` และดึงเฉพาะ `ABS_MT_POSITION_X`, `ABS_MT_POSITION_Y`, `SYN_REPORT`
+- Action ที่บันทึก: `down` (ครั้งแรก), `move` (ตำแหน่งอัปเดต), `up` (SYN ที่ไม่มีตำแหน่งใหม่)
+- กด **Ctrl+C** เพื่อหยุดแล้วเขียนไฟล์ผลลัพธ์ (`/work` ผูกกับโฟลเดอร์ `data` บนโฮสต์)
+
 ---
 
 ## การหยุดงาน/ปิดระบบ

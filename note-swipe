@@ -1,6 +1,6 @@
 cd D:\android-controller\scripts-controller
 $SER = '10.1.1.242:44525'   # เผื่อพิมพ์ซ้ำบ่อย
-
+$SER = '10.1.1.242:35385'
 
 # แตะกลางล่างของจอ (ตัวอย่างพิกัดทั่วไป)
 .\control-device.ps1 -Action Tap -X 540 -Y 2160 -Serial $SER

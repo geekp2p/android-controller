@@ -11,9 +11,9 @@ docker compose up -d
 
 docker compose exec controller bash
 
-adb pair 10.1.1.242:39191 121284
+adb pair 10.1.1.242:39141 820924
 
-adb connect 10.1.1.242:43849
+adb connect 10.1.1.242:44525
 
 adb devices -l
 
