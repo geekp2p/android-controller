@@ -159,13 +159,13 @@ adb logcat
 ไฟล์ที่ดึงออกมา (เช่น `s.png`, `log.txt`) จะอยู่ใน `D:\android-controller\data\`
 
 ### เรียกสคริปต์ Python ภายในคอนเทนเนอร์
-- สคริปต์อยู่ที่ `/work/controller/*.py` (ชื่อไฟล์ใช้ `_` ไม่ใช่ `-`) และไม่ได้ถูกใส่ไว้ใน `$PATH`
-- จึงควรรันผ่าน `python /work/controller/<script>.py ...` ภายในคอนเทนเนอร์ เช่น `docker compose exec controller ...`
+- สคริปต์หลักถูกติดตั้งไว้ใน `$PATH` ภายในคอนเทนเนอร์ (ชื่อไฟล์ใช้ `-` เช่น `capture-ui-and-screen.py`)
+- สามารถรันได้โดยตรง เช่น `docker compose exec controller capture-ui-and-screen.py ...`
 
 ### Dump UI + Screenshot (timestamp/stage ตรงกัน)
 ```bash
 # บันทึกไฟล์เป็น /work/ui-dumps/<timestamp>-<stage>.xml และ .png
-python /work/controller/capture_ui_and_screen.py -g login-screen -s 10.1.1.242:43849
+capture-ui-and-screen.py -g login-screen -s 10.1.1.242:43849
 ```
 - ใช้คำสั่ง `adb shell screencap -p /sdcard/screen.png && adb pull ...` เพื่อให้สกรีนช็อตอยู่โฟลเดอร์เดียวกับ UI dump
 - ไฟล์ XML กับ PNG จะมี prefix ตรงกัน (`<timestamp>-<stage>`) ทำให้นำไปเทียบกันได้ทันที
@@ -173,17 +173,17 @@ python /work/controller/capture_ui_and_screen.py -g login-screen -s 10.1.1.242:4
 ### (ตัวเลือก) วาด marker จาก log ลงบนสกรีนช็อต
 ```bash
 # ใช้ไฟล์ที่ได้จาก touch-event-capture.py (JSON/CSV)
-python /work/controller/overlay_touches.py /work/touch-events.json /work/ui-dumps/20240901-120000-login-screen.png
+overlay-touches.py /work/touch-events.json /work/ui-dumps/20240901-120000-login-screen.png
 ```
 - ไฟล์ผลลัพธ์จะมี suffix `-marked` หรือกำหนดเองด้วย `-o`
 
 ### Replay log (touch / element)
 ```bash
 # พิกัดดิบจาก touch-event-capture.py (รีเพลย์ตาม timestamp + ความยาวปัดจริง)
-python /work/controller/replay_log.py /work/touch-events.json --speed 1.5
+replay-log.py /work/touch-events.json --speed 1.5
 
 # log อ้างอิง element (ต้องมี UI dump ล่าสุดจาก ui_dump_capture.py)
-python /work/controller/replay_log.py /work/element-actions.json --ui-source /work/ui-dumps --verify screenshot
+replay-log.py /work/element-actions.json --ui-source /work/ui-dumps --verify screenshot
 ```
 - รองรับ JSON/CSV จาก `touch-event-capture.py` (จับคู่ `down/move/up` → tap หรือ swipe)
 - สำหรับ log อ้างอิง element (`resource_id` / `text`) จะหาพิกัดศูนย์กลางจาก UI dump ล่าสุด
@@ -216,7 +216,7 @@ python /work/controller/replay_log.py /work/element-actions.json --ui-source /wo
 ### เก็บ Touch Events เป็น JSON/CSV
 ```bash
 # เริ่มฟัง event จาก /dev/input/event2 แล้วเซฟเป็น CSV ลงโฮสต์
-docker compose exec controller python /work/controller/touch_event_capture.py \
+docker compose exec controller touch-event-capture.py \
   --device /dev/input/event2 \
   --output /work/touch-events.csv \
   --format csv

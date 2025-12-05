@@ -21,28 +21,28 @@ docker compose exec controller bash
 ## 2) จับคู่ UI dump + สกรีนช็อตก่อน
 บันทึก XML + PNG พร้อม timestamp/stage เดียวกัน (ช่วยหาจุด element ได้ตรง):
 ```bash
-python /work/controller/capture_ui_and_screen.py -g login-screen -s <DEVICE_SERIAL_OR_IP>
+capture-ui-and-screen.py -g login-screen -s <DEVICE_SERIAL_OR_IP>
 ```
 ไฟล์จะอยู่ที่ `/work/ui-dumps` ชื่อ `<timestamp>-<stage>.xml` และ `.png`
 
 ## 3) รีเพลย์จาก log พิกัดดิบ (tap/swipe ตามเวลาจริง)
 ถ้ามีไฟล์ JSON/CSV จาก `touch-event-capture.py` แล้ว รีเพลย์ตาม timestamp และความยาวปัดเดิม:
 ```bash
-python /work/controller/replay_log.py /work/touch-events.json --speed 1.5
+replay-log.py /work/touch-events.json --speed 1.5
 ```
 - ปรับ `--speed` เพื่อเร่ง/ช้า หรือใช้ `--fixed-delay` กำหนดช่วงพักคงที่
 
 ## 4) รีเพลย์แบบอ้างอิง element
 ใช้ log ที่บันทึก element (เช่น `element-actions.json`) พร้อม UI dump ล่าสุดเพื่อหาพิกัดกลางของ element อัตโนมัติ:
 ```bash
-python /work/controller/replay_log.py /work/element-actions.json --ui-source /work/ui-dumps --verify screenshot
+replay-log.py /work/element-actions.json --ui-source /work/ui-dumps --verify screenshot
 ```
 - เลือก `--verify ui|screenshot|both` เพอดึงหลักฐานหลังแต่ละสเต็ป
 
 ## 5) วาด marker ซ้ำจุดกดบนสกรีนช็อต (เพื่อตรวจสอบ)
 สร้างภาพระบุจุดกด/เส้นปัดจาก log พิกัดดิบ:
 ```bash
-python /work/controller/overlay_touches.py /work/touch-events.json /work/ui-dumps/<timestamp>-login-screen.png
+overlay-touches.py /work/touch-events.json /work/ui-dumps/<timestamp>-login-screen.png
 ```
 - ผลลัพธ์มี suffix `-marked` หรือกำหนดชื่อเองด้วย `-o`
 
